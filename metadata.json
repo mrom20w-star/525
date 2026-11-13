@@ -1,0 +1,6 @@
+{
+  "name": "محاكي فودافون كاش - التحويل والرصيد",
+  "description": "محاكي واقعي لهاتف آيفون لخدمات التحويل والاستعلام عن الرصيد عبر أكواد USSD وإشعارات رسائل VF-Cash بالصوت.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
