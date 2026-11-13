@@ -124,10 +124,17 @@ export function UssdOverlay({
             </p>
           </div>
 
-          {/* Bottom 2 Action Buttons */}
+          {/* Bottom 2 Action Buttons: Right = تجاهل / استبعاد, Left = رد */}
           <div dir="rtl" className="grid grid-cols-2 gap-3 pb-1">
             {session.replyOnRight ? (
               <>
+                <button
+                  type="button"
+                  onClick={onDismiss}
+                  className="h-[52px] rounded-[14px] bg-black text-white text-[18px] font-medium hover:bg-black/85 active:scale-[0.98] transition-all cursor-pointer"
+                >
+                  {session.dismissLabel}
+                </button>
                 {session.canReply ? (
                   <button
                     type="button"
@@ -145,13 +152,6 @@ export function UssdOverlay({
                     حسناً
                   </button>
                 )}
-                <button
-                  type="button"
-                  onClick={onDismiss}
-                  className="h-[52px] rounded-[14px] bg-black text-white text-[18px] font-medium hover:bg-black/85 active:scale-[0.98] transition-all cursor-pointer"
-                >
-                  {session.dismissLabel}
-                </button>
               </>
             ) : (
               <>

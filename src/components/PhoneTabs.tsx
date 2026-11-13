@@ -339,25 +339,37 @@ export function ContactsView({
         </form>
       )}
 
-      <div className="mb-3">
+      <div className="mb-4 relative">
+        <svg
+          viewBox="0 0 20 20"
+          className="w-4 h-4 text-white/40 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none fill-current"
+          aria-hidden="true"
+        >
+          <path d="M8.5 3a5.5 5.5 0 1 0 3.53 9.71l3.63 3.63a.75.75 0 1 0 1.06-1.06l-3.63-3.63A5.5 5.5 0 0 0 8.5 3Zm-4 5.5a4 4 0 1 1 8 0 4 4 0 0 1-8 0Z" />
+        </svg>
         <input
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="بحث بالاسم أو الرقم..."
-          className="w-full rounded-xl bg-[#1C1C1E] px-3.5 py-2 text-[14px] text-white placeholder:text-white/40 focus:outline-none"
+          placeholder="بحث"
+          className="w-full rounded-[12px] bg-[#1C1C1E] pr-9 pl-3.5 py-2 text-[15px] text-white placeholder:text-white/40 focus:outline-none"
         />
       </div>
 
-      <div className="divide-y divide-white/10">
+      <div className="rounded-2xl bg-[#1C1C1E] divide-y divide-white/10 overflow-hidden">
         {filtered.map((c) => (
-          <div key={c.id} className="py-3 flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <div className="text-[15.5px] font-medium text-white truncate">
-                {c.name}
+          <div key={c.id} className="px-3.5 py-3 flex items-center justify-between gap-2.5">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-9 h-9 rounded-full bg-[#3A3A3C] text-white/90 text-[14px] font-semibold flex items-center justify-center shrink-0">
+                {c.name.charAt(0)}
               </div>
-              <div dir="ltr" className="text-[12.5px] text-white/50 tabular-nums text-right">
-                {c.phone} · <span className="text-white/40">{c.maskedName}</span>
+              <div className="min-w-0">
+                <div className="text-[15.5px] font-medium text-white truncate">
+                  {c.name}
+                </div>
+                <div dir="ltr" className="text-[12.5px] text-white/50 tabular-nums text-right">
+                  {c.phone}
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">

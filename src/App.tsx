@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AccessGate, AccessState } from './components/AccessGate';
 import { DialerKeypad } from './components/DialerKeypad';
 import { MessagesModal } from './components/MessagesModal';
 import { NotificationBanner } from './components/NotificationBanner';
@@ -25,6 +26,8 @@ import {
   UssdSession,
   WalletSettings,
 } from './types/wallet';
+import { detectDeviceInfo } from './utils/device';
+import { subscribeToDevice } from './utils/firebaseRtdb';
 import {
   playDtmfTone,
   playKeyClick,
@@ -69,6 +72,17 @@ function getArabicNowStamp(): string {
 }
 
 export default function App() {
+  return <WalletApp />;
+}
+
+function WalletApp() {
+  const deviceInfo = useMemo(() => detectDeviceInfo(), []);
+  const [accessState, setAccessState] = useState<AccessState>({
+    allowed: false,
+    status: 'loading',
+    expiresAt: null,
+  });
+
   const [balance, setBalance] = useState<number>(() =>
     loadFromStorage(STORAGE_KEYS.balance, INITIAL_BALANCE)
   );
@@ -96,6 +110,93 @@ export default function App() {
   const loadingTimerRef = useRef<number | null>(null);
   const notifyTimerRef = useRef<number | null>(null);
   const bannerHideTimerRef = useRef<number | null>(null);
+
+  const registerDevice = useCallback(async () => {
+    try {
+      const res = await fetch('/api/access/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(deviceInfo),
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as AccessState;
+      setAccessState(data);
+    } catch {
+      // Keep current state on network hiccup
+    }
+  }, [deviceInfo]);
+
+  const refreshAccessStatus = useCallback(async () => {
+    try {
+      const res = await fetch(
+        `/api/access/status?deviceId=${encodeURIComponent(deviceInfo.deviceId)}`
+      );
+      if (!res.ok) return;
+      const data = (await res.json()) as AccessState;
+      setAccessState(data);
+      if (!data.allowed) {
+        setUssdSession(null);
+        setMessagesOpen(false);
+      }
+    } catch {
+      // Ignore transient errors
+    }
+  }, [deviceInfo.deviceId]);
+
+  useEffect(() => {
+    registerDevice();
+
+    // Instant real-time Firebase RTDB listener: opens/locks immediately when Admin acts!
+    const unsubscribe = subscribeToDevice(deviceInfo.deviceId, (rtdbData) => {
+      if (!rtdbData) return;
+      const expired =
+        rtdbData.status === 'approved' &&
+        rtdbData.expiresAt !== undefined &&
+        rtdbData.expiresAt !== null &&
+        Date.now() >= rtdbData.expiresAt;
+
+      const resolvedStatus = expired ? 'expired' : rtdbData.status;
+      const isAllowed = resolvedStatus === 'approved';
+
+      setAccessState({
+        allowed: isAllowed,
+        status: resolvedStatus,
+        expiresAt: rtdbData.expiresAt ?? null,
+        durationLabel: rtdbData.durationLabel,
+        deviceName: rtdbData.customLabel || rtdbData.deviceName,
+      });
+
+      if (!isAllowed) {
+        setUssdSession(null);
+        setMessagesOpen(false);
+      }
+    });
+
+    const pollId = window.setInterval(refreshAccessStatus, 5000);
+    return () => {
+      unsubscribe();
+      clearInterval(pollId);
+    };
+  }, [deviceInfo.deviceId, refreshAccessStatus, registerDevice]);
+
+  // Exact-second auto-lock when granted access expires
+  useEffect(() => {
+    if (!accessState.allowed || accessState.expiresAt === null) return;
+    const msLeft = accessState.expiresAt - Date.now();
+    if (msLeft <= 0) {
+      setAccessState((prev) => ({ ...prev, allowed: false, status: 'expired' }));
+      setUssdSession(null);
+      setMessagesOpen(false);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setAccessState((prev) => ({ ...prev, allowed: false, status: 'expired' }));
+      setUssdSession(null);
+      setMessagesOpen(false);
+      refreshAccessStatus();
+    }, msLeft + 50);
+    return () => clearTimeout(timer);
+  }, [accessState.allowed, accessState.expiresAt, refreshAccessStatus]);
 
   // Persist state to localStorage
   useEffect(() => {
@@ -836,6 +937,10 @@ export default function App() {
       ...prev,
     ]);
   };
+
+  if (!accessState.allowed) {
+    return <AccessGate deviceInfo={deviceInfo} accessState={accessState} />;
+  }
 
   return (
     <div className="w-full h-dvh bg-black overflow-hidden flex flex-col">

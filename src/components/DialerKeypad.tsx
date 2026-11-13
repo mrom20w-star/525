@@ -88,40 +88,40 @@ export function DialerKeypad({
 
   const displayFontClass =
     dialValue.length > 20
-      ? 'text-[26px]'
+      ? 'text-[clamp(22px,6.2vw,28px)]'
       : dialValue.length > 14
-      ? 'text-[31px]'
-      : 'text-[36px]';
+      ? 'text-[clamp(26px,7.2vw,32px)]'
+      : 'text-[clamp(30px,8.6vw,38px)]';
 
   return (
-    <div className="flex flex-1 flex-col justify-between bg-black px-6 pt-6 pb-4 select-none">
-      <div className="max-w-md w-full mx-auto flex-1 flex flex-col justify-between">
-      {/* Top Number Display Area (Matches 00:06 - 00:17) */}
-      <div className="flex flex-col items-center justify-center min-h-[108px] pt-2">
+    <div className="flex flex-1 min-h-0 flex-col justify-between bg-black px-5 pt-[max(12px,2.5dvh)] pb-[max(8px,1.5dvh)] select-none">
+      <div className="max-w-md w-full mx-auto flex-1 min-h-0 flex flex-col justify-between">
+      {/* Top Number Display Area */}
+      <div className="flex flex-col items-center justify-center min-h-[min(96px,13dvh)] pt-1">
         <div
           dir="ltr"
           onClick={dialValue.length === 0 ? handlePasteClick : undefined}
           title={dialValue.length === 0 ? 'اضغط للصق رقم أو كود' : undefined}
           className={`w-full text-center font-normal text-white tracking-tight tabular-nums leading-tight break-all transition-all ${displayFontClass} ${
-            dialValue.length === 0 ? 'cursor-pointer min-h-[44px]' : ''
+            dialValue.length === 0 ? 'cursor-pointer min-h-[42px]' : ''
           }`}
         >
           {dialValue || '\u00A0'}
         </div>
 
         {matchedContact ? (
-          <div className="mt-1.5 text-[14px] text-[#0A84FF] font-medium">
+          <div className="mt-1 text-[14px] text-[#0A84FF] font-medium">
             {matchedContact.name}
           </div>
         ) : (
-          <div className="mt-1.5 h-[20px]" />
+          <div className="mt-1 h-[18px]" />
         )}
       </div>
 
       {/* Keypad + Call Row */}
-      <div className="flex flex-col items-center pb-2">
-        {/* 3x4 Circular Buttons (Always LTR layout 1-2-3 just like iOS Arabic Phone) */}
-        <div dir="ltr" className="grid grid-cols-3 gap-x-5 gap-y-3.5">
+      <div className="flex flex-col items-center pb-[max(4px,1dvh)]">
+        {/* 3x4 Circular Buttons (Fluid iPhone proportions) */}
+        <div dir="ltr" className="grid grid-cols-3 gap-x-[min(22px,5.6vw)] gap-y-[min(14px,1.8dvh)]">
           {KEYPAD_ROWS.flat().map((keyItem) => {
             const isStar = keyItem.digit === '*';
             const isHash = keyItem.digit === '#';
@@ -146,15 +146,15 @@ export function DialerKeypad({
                   }
                   onAppendDigit(keyItem.digit);
                 }}
-                className="w-[74px] h-[74px] sm:w-[78px] sm:h-[78px] rounded-full bg-[#333333] hover:bg-[#3f3f42] active:bg-[#737373] transition-colors duration-100 flex flex-col items-center justify-center text-white cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+                className="w-[min(78px,19.5vw,10.6dvh)] h-[min(78px,19.5vw,10.6dvh)] rounded-full bg-[#333333] hover:bg-[#3f3f42] active:bg-[#737373] transition-colors duration-100 flex flex-col items-center justify-center text-white cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
               >
                 <span
                   className={
                     isStar
-                      ? 'text-[42px] leading-none font-light translate-y-1.5'
+                      ? 'text-[min(42px,10.5vw,5.4dvh)] leading-none font-light translate-y-1.5'
                       : isHash
-                      ? 'text-[31px] leading-none font-normal'
-                      : 'text-[34px] leading-none font-normal tabular-nums'
+                      ? 'text-[min(31px,7.8vw,4.1dvh)] leading-none font-normal'
+                      : 'text-[min(34px,8.5vw,4.6dvh)] leading-none font-normal tabular-nums'
                   }
                 >
                   {keyItem.digit}
@@ -171,22 +171,22 @@ export function DialerKeypad({
           })}
         </div>
 
-        {/* Bottom Action Row: Empty | Green Call Button | Backspace (Matches 00:07-00:17) */}
-        <div dir="ltr" className="mt-3.5 grid grid-cols-3 gap-x-5 items-center">
-          <div className="w-[74px] h-[74px] sm:w-[78px] sm:h-[78px]" />
+        {/* Bottom Action Row: Empty | Green Call Button | Backspace */}
+        <div dir="ltr" className="mt-[min(14px,1.8dvh)] grid grid-cols-3 gap-x-[min(22px,5.6vw)] items-center">
+          <div className="w-[min(78px,19.5vw,10.6dvh)] h-[min(78px,19.5vw,10.6dvh)]" />
 
           <button
             type="button"
             aria-label="اتصال"
             onClick={onCall}
-            className="w-[74px] h-[74px] sm:w-[78px] sm:h-[78px] rounded-full bg-[#30D158] hover:bg-[#28bd4d] active:bg-[#22a341] active:scale-95 transition-all duration-100 flex items-center justify-center text-white cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#30D158]/60"
+            className="w-[min(78px,19.5vw,10.6dvh)] h-[min(78px,19.5vw,10.6dvh)] rounded-full bg-[#30D158] hover:bg-[#28bd4d] active:bg-[#22a341] active:scale-95 transition-all duration-100 flex items-center justify-center text-white cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#30D158]/60"
           >
-            <svg viewBox="0 0 24 24" className="w-8 h-8 fill-white" aria-hidden="true">
+            <svg viewBox="0 0 24 24" className="w-[min(32px,8vw,4.2dvh)] h-[min(32px,8vw,4.2dvh)] fill-white" aria-hidden="true">
               <path d="M6.62 10.79a15.05 15.05 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.01-.24c1.12.37 2.33.57 3.58.57a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1C10.61 21 3 13.39 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.46.57 3.58a1 1 0 0 1-.25 1.01l-2.2 2.2Z" />
             </svg>
           </button>
 
-          <div className="w-[74px] h-[74px] sm:w-[78px] sm:h-[78px] flex items-center justify-center">
+          <div className="w-[min(78px,19.5vw,10.6dvh)] h-[min(78px,19.5vw,10.6dvh)] flex items-center justify-center">
             {dialValue.length > 0 && (
               <button
                 type="button"
