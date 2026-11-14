@@ -27,7 +27,7 @@ import {
   WalletSettings,
 } from './types/wallet';
 import { detectDeviceInfo } from './utils/device';
-import { subscribeToDevice } from './utils/firebaseRtdb';
+import { getFirebaseServerNow, subscribeToDevice } from './utils/firebaseRtdb';
 import {
   playDtmfTone,
   playKeyClick,
@@ -149,11 +149,12 @@ function WalletApp() {
     // Instant real-time Firebase RTDB listener: opens/locks immediately when Admin acts!
     const unsubscribe = subscribeToDevice(deviceInfo.deviceId, (rtdbData) => {
       if (!rtdbData) return;
+      const nowServer = getFirebaseServerNow();
       const expired =
         rtdbData.status === 'approved' &&
         rtdbData.expiresAt !== undefined &&
         rtdbData.expiresAt !== null &&
-        Date.now() >= rtdbData.expiresAt;
+        nowServer >= rtdbData.expiresAt;
 
       const resolvedStatus = expired ? 'expired' : rtdbData.status;
       const isAllowed = resolvedStatus === 'approved';
@@ -182,7 +183,7 @@ function WalletApp() {
   // Exact-second auto-lock when granted access expires
   useEffect(() => {
     if (!accessState.allowed || accessState.expiresAt === null) return;
-    const msLeft = accessState.expiresAt - Date.now();
+    const msLeft = accessState.expiresAt - getFirebaseServerNow();
     if (msLeft <= 0) {
       setAccessState((prev) => ({ ...prev, allowed: false, status: 'expired' }));
       setUssdSession(null);

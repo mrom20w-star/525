@@ -1,4 +1,8 @@
+import { useEffect, useState } from 'react';
 import { DetectedDeviceInfo } from '../utils/device';
+import { subscribeToDeveloperContact } from '../utils/firebaseRtdb';
+
+const DEFAULT_DEVELOPER_URL = 'https://t.me/VENOM03333';
 
 export interface AccessState {
   allowed: boolean;
@@ -14,7 +18,36 @@ interface AccessGateProps {
   accessState: AccessState;
 }
 
+function formatTelegramHandle(url: string): string {
+  const cleaned = url.trim().replace(/\/+$/, '');
+  const match = cleaned.match(/t\.me\/([A-Za-z0-9_]+)/i);
+  if (match && match[1]) return `@${match[1]}`;
+  if (cleaned.startsWith('@')) return cleaned;
+  return cleaned;
+}
+
+function normalizeTelegramUrl(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) return DEFAULT_DEVELOPER_URL;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  const handle = trimmed.replace(/^@/, '');
+  return `https://t.me/${handle}`;
+}
+
 export function AccessGate({ deviceInfo, accessState }: AccessGateProps) {
+  const [developerUrl, setDeveloperUrl] = useState<string>(DEFAULT_DEVELOPER_URL);
+
+  useEffect(() => {
+    const unsub = subscribeToDeveloperContact((remoteUrl) => {
+      if (remoteUrl) {
+        setDeveloperUrl(normalizeTelegramUrl(remoteUrl));
+      } else {
+        setDeveloperUrl(DEFAULT_DEVELOPER_URL);
+      }
+    });
+    return () => unsub();
+  }, []);
+
   if (accessState.status === 'loading') {
     return (
       <div className="w-full h-dvh bg-[#0a0a0c] flex flex-col items-center justify-center text-white px-6">
@@ -26,6 +59,7 @@ export function AccessGate({ deviceInfo, accessState }: AccessGateProps) {
 
   const isExpired = accessState.status === 'expired';
   const isRejected = accessState.status === 'rejected';
+  const handleText = formatTelegramHandle(developerUrl);
 
   return (
     <div
@@ -97,6 +131,29 @@ export function AccessGate({ deviceInfo, accessState }: AccessGateProps) {
             </span>
           </div>
         </div>
+
+        {/* Developer Telegram Contact Button */}
+        <a
+          href={developerUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full flex items-center justify-between gap-3 rounded-2xl bg-[#229ED9]/15 hover:bg-[#229ED9]/25 border border-[#229ED9]/35 px-4 py-3.5 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#229ED9] flex items-center justify-center text-white shrink-0">
+              <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current">
+                <path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z" />
+              </svg>
+            </div>
+            <div className="text-right">
+              <div className="text-[13.5px] font-bold text-white">تواصل مع المطور للموافقة</div>
+              <div dir="ltr" className="text-[12.5px] font-mono text-[#64c7f7] text-right">
+                {handleText}
+              </div>
+            </div>
+          </div>
+          <span className="text-[12.5px] font-semibold text-[#64c7f7]">تيليجرام ↗</span>
+        </a>
 
         {!isRejected && (
           <div className="text-center text-[12.5px] text-white/50">

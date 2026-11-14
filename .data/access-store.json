@@ -1,8 +1,17 @@
 {
-  "devices": {},
-  "developers": [],
-  "adminTokens": [
-    "d9c43ff8775a2220d8021311410be5b28f2d6fa1221f06e2",
-    "63399d88cf34f484d2da9671a24b9524809b2c53341a79ce"
-  ]
+  "devices": {
+    "DEV-RLUU-MWFM4ZBN": {
+      "createdAt": 1794613140332,
+      "customLabel": "",
+      "deviceId": "DEV-RLUU-MWFM4ZBN",
+      "deviceName": "Windows PC · Chrome",
+      "durationLabel": "",
+      "lastSeenAt": 1794614396986,
+      "platform": "Win32",
+      "requestedUsername": "",
+      "screenSize": "1366x768",
+      "status": "pending",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36"
+    }
+  }
 }

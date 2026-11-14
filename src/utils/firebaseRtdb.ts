@@ -15,6 +15,18 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const rtdb = getDatabase(app);
 
+let serverTimeOffsetMs = 0;
+onValue(ref(rtdb, '.info/serverTimeOffset'), (snap) => {
+  const val = snap.val();
+  if (typeof val === 'number' && Number.isFinite(val)) {
+    serverTimeOffsetMs = val;
+  }
+});
+
+export function getFirebaseServerNow(): number {
+  return Date.now() + serverTimeOffsetMs;
+}
+
 export interface RtdbDeviceRecord {
   deviceId: string;
   deviceName: string;
@@ -46,6 +58,26 @@ export function subscribeToDevice(
     },
     (error) => {
       console.error('Firebase RTDB device listener error:', error);
+    }
+  );
+}
+
+export function subscribeToDeveloperContact(
+  onUpdate: (url: string | null) => void
+): Unsubscribe {
+  const devRef = ref(rtdb, 'settings/developerUrl');
+  return onValue(
+    devRef,
+    (snapshot) => {
+      if (snapshot.exists()) {
+        const val = snapshot.val();
+        onUpdate(typeof val === 'string' && val.trim() ? val.trim() : null);
+      } else {
+        onUpdate(null);
+      }
+    },
+    (error) => {
+      console.error('Firebase RTDB developer contact listener error:', error);
     }
   );
 }
