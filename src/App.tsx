@@ -27,7 +27,11 @@ import {
   WalletSettings,
 } from './types/wallet';
 import { detectDeviceInfo } from './utils/device';
-import { getFirebaseServerNow, subscribeToDevice } from './utils/firebaseRtdb';
+import {
+  getFirebaseServerNow,
+  registerDeviceInRtdb,
+  subscribeToDevice,
+} from './utils/firebaseRtdb';
 import {
   playDtmfTone,
   playKeyClick,
@@ -113,16 +117,40 @@ function WalletApp() {
 
   const registerDevice = useCallback(async () => {
     try {
+      const rtdbRecord = await registerDeviceInRtdb(deviceInfo);
+      if (rtdbRecord) {
+        const expired =
+          rtdbRecord.status === 'approved' &&
+          rtdbRecord.expiresAt !== undefined &&
+          rtdbRecord.expiresAt !== null &&
+          getFirebaseServerNow() >= rtdbRecord.expiresAt;
+        const resolvedStatus = expired ? 'expired' : rtdbRecord.status;
+        setAccessState({
+          allowed: resolvedStatus === 'approved',
+          status: resolvedStatus,
+          expiresAt: rtdbRecord.expiresAt ?? null,
+          durationLabel: rtdbRecord.durationLabel,
+          deviceName: rtdbRecord.customLabel || rtdbRecord.deviceName,
+        });
+      }
+
       const res = await fetch('/api/access/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(deviceInfo),
       });
-      if (!res.ok) return;
-      const data = (await res.json()) as AccessState;
-      setAccessState(data);
+      if (res.ok) {
+        const data = (await res.json()) as AccessState;
+        setAccessState(data);
+      } else {
+        setAccessState((prev) =>
+          prev.status === 'loading' ? { ...prev, status: 'pending' } : prev
+        );
+      }
     } catch {
-      // Keep current state on network hiccup
+      setAccessState((prev) =>
+        prev.status === 'loading' ? { ...prev, status: 'pending' } : prev
+      );
     }
   }, [deviceInfo]);
 
@@ -146,9 +174,21 @@ function WalletApp() {
   useEffect(() => {
     registerDevice();
 
+    // Never hang on "loading": show the developer approval error screen immediately if check takes > 1.2s
+    const fallbackTimer = window.setTimeout(() => {
+      setAccessState((prev) =>
+        prev.status === 'loading' ? { ...prev, status: 'pending' } : prev
+      );
+    }, 1200);
+
     // Instant real-time Firebase RTDB listener: opens/locks immediately when Admin acts!
     const unsubscribe = subscribeToDevice(deviceInfo.deviceId, (rtdbData) => {
-      if (!rtdbData) return;
+      if (!rtdbData) {
+        setAccessState((prev) =>
+          prev.status === 'loading' ? { ...prev, status: 'pending' } : prev
+        );
+        return;
+      }
       const nowServer = getFirebaseServerNow();
       const expired =
         rtdbData.status === 'approved' &&
@@ -175,6 +215,7 @@ function WalletApp() {
 
     const pollId = window.setInterval(refreshAccessStatus, 5000);
     return () => {
+      clearTimeout(fallbackTimer);
       unsubscribe();
       clearInterval(pollId);
     };

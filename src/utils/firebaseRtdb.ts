@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app';
-import { getDatabase, onValue, ref, type Unsubscribe } from 'firebase/database';
+import { get, getDatabase, onValue, ref, set, update, type Unsubscribe } from 'firebase/database';
+import { DetectedDeviceInfo } from './device';
 
 const firebaseConfig = {
   apiKey: 'AIzaSyAlX1ASvDrf5BBtaB72AUYqSoW34YvP_y4',
@@ -42,6 +43,48 @@ export interface RtdbDeviceRecord {
   lastSeenAt?: number;
 }
 
+export async function registerDeviceInRtdb(
+  deviceInfo: DetectedDeviceInfo
+): Promise<RtdbDeviceRecord | null> {
+  try {
+    const deviceRef = ref(rtdb, `devices/${deviceInfo.deviceId}`);
+    const snap = await get(deviceRef);
+    const now = getFirebaseServerNow();
+
+    if (snap.exists()) {
+      const existing = snap.val() as RtdbDeviceRecord;
+      await update(deviceRef, {
+        deviceName: deviceInfo.deviceName,
+        userAgent: deviceInfo.userAgent,
+        platform: deviceInfo.platform,
+        screenSize: deviceInfo.screenSize,
+        lastSeenAt: now,
+      });
+      return { ...existing, lastSeenAt: now };
+    }
+
+    const created: RtdbDeviceRecord = {
+      deviceId: deviceInfo.deviceId,
+      deviceName: deviceInfo.deviceName,
+      customLabel: '',
+      userAgent: deviceInfo.userAgent,
+      platform: deviceInfo.platform,
+      screenSize: deviceInfo.screenSize,
+      status: 'pending',
+      durationLabel: '',
+      approvedAt: null,
+      expiresAt: null,
+      createdAt: now,
+      lastSeenAt: now,
+    };
+    await set(deviceRef, created);
+    return created;
+  } catch (err) {
+    console.error('Firebase RTDB direct register error:', err);
+    return null;
+  }
+}
+
 export function subscribeToDevice(
   deviceId: string,
   onUpdate: (data: RtdbDeviceRecord | null) => void
@@ -58,6 +101,7 @@ export function subscribeToDevice(
     },
     (error) => {
       console.error('Firebase RTDB device listener error:', error);
+      onUpdate(null);
     }
   );
 }
@@ -81,4 +125,3 @@ export function subscribeToDeveloperContact(
     }
   );
 }
-

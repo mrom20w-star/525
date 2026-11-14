@@ -1,16 +1,18 @@
 {
   "devices": {
     "DEV-RLUU-MWFM4ZBN": {
+      "approvedAt": 1794615019069,
       "createdAt": 1794613140332,
       "customLabel": "",
       "deviceId": "DEV-RLUU-MWFM4ZBN",
       "deviceName": "Windows PC · Chrome",
-      "durationLabel": "",
-      "lastSeenAt": 1794614396986,
+      "durationLabel": "1 دقيقة",
+      "expiresAt": 1794615079069,
+      "lastSeenAt": 1794616590517,
       "platform": "Win32",
       "requestedUsername": "",
       "screenSize": "1366x768",
-      "status": "pending",
+      "status": "expired",
       "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36"
     }
   }

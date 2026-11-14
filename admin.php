@@ -4,15 +4,49 @@
  * مربوطة مباشرة مع Firebase Realtime Database: mrwan-dd795
  *
  * كلمة مرور الدخول الافتراضية: admin1234
- * يُنصح بتغيير ADMIN_PASSWORD قبل الرفع على استضافة عامة.
  */
 
-session_start();
+@ob_start();
+if (function_exists('session_status')) {
+    if (session_status() === PHP_SESSION_NONE) {
+        @session_start();
+    }
+} else {
+    @session_start();
+}
 
 define('ADMIN_PASSWORD', 'admin1234');
 define('FIREBASE_DB_URL', 'https://mrwan-dd795-default-rtdb.firebaseio.com');
 
-function fbRequest(string $path, string $method = 'GET', $data = null) {
+function safeSubstr($str, $start, $len) {
+    if (function_exists('mb_substr')) {
+        return mb_substr($str, $start, $len, 'UTF-8');
+    }
+    return substr($str, $start, $len);
+}
+
+function getCookieAuthToken() {
+    return hash('sha256', 'vf_admin_' . ADMIN_PASSWORD . '_' . FIREBASE_DB_URL);
+}
+
+function safeEquals($a, $b) {
+    if (function_exists('hash_equals')) {
+        return hash_equals((string) $a, (string) $b);
+    }
+    return (string) $a === (string) $b;
+}
+
+function checkIsAuthed() {
+    if (!empty($_SESSION['vf_admin_auth'])) {
+        return true;
+    }
+    if (!empty($_COOKIE['vf_admin_sig']) && safeEquals(getCookieAuthToken(), $_COOKIE['vf_admin_sig'])) {
+        return true;
+    }
+    return false;
+}
+
+function fbRequest($path, $method = 'GET', $data = null) {
     $url = rtrim(FIREBASE_DB_URL, '/') . '/' . ltrim($path, '/') . '.json';
     $payload = $data !== null ? json_encode($data, JSON_UNESCAPED_UNICODE) : null;
 
@@ -22,7 +56,7 @@ function fbRequest(string $path, string $method = 'GET', $data = null) {
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
         curl_setopt($ch, CURLOPT_TIMEOUT, 12);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json'));
         if ($payload !== null) {
             curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
         }
@@ -35,40 +69,42 @@ function fbRequest(string $path, string $method = 'GET', $data = null) {
         }
     }
 
-    $opts = [
-        'http' => [
+    $opts = array(
+        'http' => array(
             'method' => $method,
             'header' => "Content-Type: application/json\r\n",
             'content' => $payload,
             'timeout' => 12,
-        ],
-        'ssl' => [
+        ),
+        'ssl' => array(
             'verify_peer' => false,
             'verify_peer_name' => false,
-        ]
-    ];
-    $context = stream_context_create($opts);
-    $res = @file_get_contents($url, false, $context);
+        )
+    );
+    $context = @stream_context_create($opts);
+    $res = $context ? @file_get_contents($url, false, $context) : false;
     return $res ? json_decode($res, true) : null;
 }
 
-function jsonOut($data, int $code = 200): void {
-    http_response_code($code);
-    header('Content-Type: application/json; charset=utf-8');
+function jsonOut($data, $code = 200) {
+    if (function_exists('http_response_code')) {
+        http_response_code($code);
+    }
+    @header('Content-Type: application/json; charset=utf-8');
     echo json_encode($data, JSON_UNESCAPED_UNICODE);
     exit;
 }
 
-function computeExpiration(string $unit, float $amount, ?string $customDate = null): array {
+function computeExpiration($unit, $amount, $customDate = null) {
     $nowMs = (int) round(microtime(true) * 1000);
 
-    if ($customDate !== null && trim($customDate) !== '') {
-        $ts = strtotime($customDate);
+    if ($customDate !== null && trim((string) $customDate) !== '') {
+        $ts = strtotime((string) $customDate);
         if ($ts !== false && ($ts * 1000) > $nowMs) {
-            return [
+            return array(
                 'expiresAt' => $ts * 1000,
                 'label' => 'تاريخ محدد يدوياً',
-            ];
+            );
         }
     }
 
@@ -79,140 +115,154 @@ function computeExpiration(string $unit, float $amount, ?string $customDate = nu
 
     switch ($unit) {
         case 'minutes':
-            return ['expiresAt' => $nowMs + ($safe * $MIN), 'label' => $safe . ' دقيقة'];
+            return array('expiresAt' => $nowMs + ($safe * $MIN), 'label' => $safe . ' دقيقة');
         case 'hours':
-            return ['expiresAt' => $nowMs + ($safe * $HOUR), 'label' => $safe === 1 ? 'ساعة واحدة' : $safe . ' ساعات'];
+            return array('expiresAt' => $nowMs + ($safe * $HOUR), 'label' => $safe === 1 ? 'ساعة واحدة' : $safe . ' ساعات');
         case 'days':
-            return ['expiresAt' => $nowMs + ($safe * $DAY), 'label' => $safe === 1 ? 'يوم واحد' : $safe . ' أيام'];
+            return array('expiresAt' => $nowMs + ($safe * $DAY), 'label' => $safe === 1 ? 'يوم واحد' : $safe . ' أيام');
         case 'weeks':
-            return ['expiresAt' => $nowMs + ($safe * 7 * $DAY), 'label' => $safe === 1 ? 'أسبوع واحد' : $safe . ' أسابيع'];
+            return array('expiresAt' => $nowMs + ($safe * 7 * $DAY), 'label' => $safe === 1 ? 'أسبوع واحد' : $safe . ' أسابيع');
         case 'months':
-            return ['expiresAt' => $nowMs + ($safe * 30 * $DAY), 'label' => $safe === 1 ? 'شهر واحد' : $safe . ' أشهر'];
+            return array('expiresAt' => $nowMs + ($safe * 30 * $DAY), 'label' => $safe === 1 ? 'شهر واحد' : $safe . ' أشهر');
         case 'years':
-            return ['expiresAt' => $nowMs + ($safe * 365 * $DAY), 'label' => $safe === 1 ? 'سنة واحدة' : $safe . ' سنوات'];
+            return array('expiresAt' => $nowMs + ($safe * 365 * $DAY), 'label' => $safe === 1 ? 'سنة واحدة' : $safe . ' سنوات');
         case 'unlimited':
         default:
-            return ['expiresAt' => null, 'label' => 'فتح دائم (غير محدد)'];
+            return array('expiresAt' => null, 'label' => 'فتح دائم (غير محدد)');
     }
 }
 
+$justLoggedIn = false;
+
 // Handle Logout
 if (isset($_GET['logout'])) {
-    unset($_SESSION['vf_admin_auth']);
-    session_destroy();
-    header('Location: admin.php');
-    exit;
+    $_SESSION = array();
+    @session_destroy();
+    if (!headers_sent()) {
+        @setcookie('vf_admin_sig', '', time() - 3600, '/');
+    }
+    $selfUrl = strtok(isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : 'admin.php', '?');
+    if (!headers_sent()) {
+        header('Location: ' . $selfUrl);
+        exit;
+    }
 }
 
-// Handle Login POST
+// Handle Login POST (No brittle header('Location') redirect — works on every shared host!)
 $loginError = '';
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['admin_login'])) {
-    $pass = $_POST['password'] ?? '';
-    if (hash_equals(ADMIN_PASSWORD, $pass)) {
+if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['admin_login'])) {
+    $pass = isset($_POST['password']) ? (string) $_POST['password'] : '';
+    if (safeEquals(ADMIN_PASSWORD, $pass)) {
         $_SESSION['vf_admin_auth'] = true;
-        header('Location: admin.php');
-        exit;
+        if (!headers_sent()) {
+            @setcookie('vf_admin_sig', getCookieAuthToken(), time() + 86400 * 7, '/');
+        }
+        $justLoggedIn = true;
     } else {
         $loginError = 'كلمة المرور غير صحيحة';
     }
 }
 
-$isAuthed = !empty($_SESSION['vf_admin_auth']);
+$isAuthed = $justLoggedIn || checkIsAuthed();
 
 // AJAX JSON API Actions (Authenticated only)
 if (isset($_GET['api'])) {
     if (!$isAuthed) {
-        jsonOut(['error' => 'غير مصرح'], 401);
+        jsonOut(array('error' => 'غير مصرح'), 401);
     }
 
     $action = $_GET['api'];
-    $rawBody = file_get_contents('php://input');
-    $body = $rawBody ? (json_decode($rawBody, true) ?: []) : $_POST;
+    $rawBody = @file_get_contents('php://input');
+    $decoded = $rawBody ? json_decode($rawBody, true) : null;
+    $body = is_array($decoded) ? $decoded : $_POST;
 
     if ($action === 'list') {
         $devices = fbRequest('devices');
         if (!is_array($devices)) {
-            $devices = [];
+            $devices = array();
         }
         $nowMs = (int) round(microtime(true) * 1000);
         foreach ($devices as $id => &$dev) {
-            if (($dev['status'] ?? '') === 'approved' && !empty($dev['expiresAt']) && $nowMs >= (int)$dev['expiresAt']) {
+            if ((isset($dev['status']) ? $dev['status'] : '') === 'approved' && !empty($dev['expiresAt']) && $nowMs >= (int)$dev['expiresAt']) {
                 $dev['status'] = 'expired';
-                fbRequest('devices/' . rawurlencode($id), 'PATCH', ['status' => 'expired']);
+                fbRequest('devices/' . rawurlencode($id), 'PATCH', array('status' => 'expired'));
             }
         }
         unset($dev);
         $list = array_values($devices);
         usort($list, function ($a, $b) {
-            return ($b['lastSeenAt'] ?? 0) <=> ($a['lastSeenAt'] ?? 0);
+            $la = isset($a['lastSeenAt']) ? (int) $a['lastSeenAt'] : 0;
+            $lb = isset($b['lastSeenAt']) ? (int) $b['lastSeenAt'] : 0;
+            if ($la === $lb) return 0;
+            return ($lb > $la) ? 1 : -1;
         });
-        jsonOut(['devices' => $list, 'serverTime' => $nowMs]);
+        jsonOut(array('devices' => $list, 'serverTime' => $nowMs));
     }
 
     if ($action === 'approve') {
-        $deviceId = trim((string)($body['deviceId'] ?? ''));
-        if ($deviceId === '') jsonOut(['error' => 'deviceId مطلوب'], 400);
+        $deviceId = trim((string)(isset($body['deviceId']) ? $body['deviceId'] : ''));
+        if ($deviceId === '') jsonOut(array('error' => 'deviceId مطلوب'), 400);
 
-        $unit = (string)($body['unit'] ?? 'unlimited');
-        $amount = (float)($body['amount'] ?? 1);
+        $unit = (string)(isset($body['unit']) ? $body['unit'] : 'unlimited');
+        $amount = (float)(isset($body['amount']) ? $body['amount'] : 1);
         $customDate = isset($body['customExpiresAt']) ? (string)$body['customExpiresAt'] : null;
         $customLabel = isset($body['customLabel']) ? trim((string)$body['customLabel']) : null;
 
         $exp = computeExpiration($unit, $amount, $customDate);
         $nowMs = (int) round(microtime(true) * 1000);
 
-        $patch = [
+        $patch = array(
             'status' => 'approved',
             'approvedAt' => $nowMs,
             'expiresAt' => $exp['expiresAt'],
             'durationLabel' => $exp['label'],
-        ];
+        );
         if ($customLabel !== null) {
-            $patch['customLabel'] = mb_substr($customLabel, 0, 80);
+            $patch['customLabel'] = safeSubstr($customLabel, 0, 80);
         }
 
         fbRequest('devices/' . rawurlencode($deviceId), 'PATCH', $patch);
         $updated = fbRequest('devices/' . rawurlencode($deviceId));
-        jsonOut(['ok' => true, 'device' => $updated]);
+        jsonOut(array('ok' => true, 'device' => $updated));
     }
 
     if ($action === 'reject') {
-        $deviceId = trim((string)($body['deviceId'] ?? ''));
-        if ($deviceId === '') jsonOut(['error' => 'deviceId مطلوب'], 400);
+        $deviceId = trim((string)(isset($body['deviceId']) ? $body['deviceId'] : ''));
+        if ($deviceId === '') jsonOut(array('error' => 'deviceId مطلوب'), 400);
 
-        fbRequest('devices/' . rawurlencode($deviceId), 'PATCH', [
+        fbRequest('devices/' . rawurlencode($deviceId), 'PATCH', array(
             'status' => 'rejected',
             'expiresAt' => null,
             'durationLabel' => 'مرفوض من المطور',
-        ]);
-        jsonOut(['ok' => true]);
+        ));
+        jsonOut(array('ok' => true));
     }
 
     if ($action === 'update_label') {
-        $deviceId = trim((string)($body['deviceId'] ?? ''));
-        $customLabel = mb_substr(trim((string)($body['customLabel'] ?? '')), 0, 80);
-        if ($deviceId === '') jsonOut(['error' => 'deviceId مطلوب'], 400);
+        $deviceId = trim((string)(isset($body['deviceId']) ? $body['deviceId'] : ''));
+        $customLabel = safeSubstr(trim((string)(isset($body['customLabel']) ? $body['customLabel'] : '')), 0, 80);
+        if ($deviceId === '') jsonOut(array('error' => 'deviceId مطلوب'), 400);
 
-        fbRequest('devices/' . rawurlencode($deviceId), 'PATCH', [
+        fbRequest('devices/' . rawurlencode($deviceId), 'PATCH', array(
             'customLabel' => $customLabel,
-        ]);
-        jsonOut(['ok' => true]);
+        ));
+        jsonOut(array('ok' => true));
     }
 
     if ($action === 'add_developer') {
-        $deviceId = trim((string)($body['deviceId'] ?? ''));
-        $customLabel = mb_substr(trim((string)($body['customLabel'] ?? 'يوزر المطور')), 0, 80);
-        $unit = (string)($body['unit'] ?? 'unlimited');
-        $amount = (float)($body['amount'] ?? 1);
-        if ($deviceId === '') jsonOut(['error' => 'معرف الجهاز أو اليوزر مطلوب'], 400);
+        $deviceId = trim((string)(isset($body['deviceId']) ? $body['deviceId'] : ''));
+        $customLabel = safeSubstr(trim((string)(isset($body['customLabel']) ? $body['customLabel'] : 'يوزر المطور')), 0, 80);
+        $unit = (string)(isset($body['unit']) ? $body['unit'] : 'unlimited');
+        $amount = (float)(isset($body['amount']) ? $body['amount'] : 1);
+        if ($deviceId === '') jsonOut(array('error' => 'معرف الجهاز أو اليوزر مطلوب'), 400);
 
         $exp = computeExpiration($unit, $amount, null);
         $nowMs = (int) round(microtime(true) * 1000);
 
-        $record = [
+        $record = array(
             'deviceId' => $deviceId,
-            'deviceName' => $customLabel ?: 'جهاز المطور',
-            'customLabel' => $customLabel ?: 'يوزر المطور',
+            'deviceName' => $customLabel ? $customLabel : 'جهاز المطور',
+            'customLabel' => $customLabel ? $customLabel : 'يوزر المطور',
             'userAgent' => 'Added by Developer Admin',
             'platform' => 'Developer',
             'screenSize' => '',
@@ -222,19 +272,19 @@ if (isset($_GET['api'])) {
             'expiresAt' => $exp['expiresAt'],
             'createdAt' => $nowMs,
             'lastSeenAt' => $nowMs,
-        ];
+        );
         fbRequest('devices/' . rawurlencode($deviceId), 'PUT', $record);
-        jsonOut(['ok' => true, 'device' => $record]);
+        jsonOut(array('ok' => true, 'device' => $record));
     }
 
     if ($action === 'delete') {
-        $deviceId = trim((string)($body['deviceId'] ?? ''));
-        if ($deviceId === '') jsonOut(['error' => 'deviceId مطلوب'], 400);
+        $deviceId = trim((string)(isset($body['deviceId']) ? $body['deviceId'] : ''));
+        if ($deviceId === '') jsonOut(array('error' => 'deviceId مطلوب'), 400);
         fbRequest('devices/' . rawurlencode($deviceId), 'DELETE');
-        jsonOut(['ok' => true]);
+        jsonOut(array('ok' => true));
     }
 
-    jsonOut(['error' => 'أمر غير معروف'], 400);
+    jsonOut(array('error' => 'أمر غير معروف'), 400);
 }
 ?>
 <!DOCTYPE html>
@@ -1365,22 +1415,42 @@ if (isset($_GET['api'])) {
 
     document.getElementById('searchInput').addEventListener('input', renderGrid);
 
+    function normalizeTelegramLink(raw) {
+      let v = String(raw || '').trim();
+      if (!v) return 'https://t.me/VENOM03333';
+      if (/^t\.me\//i.test(v)) return 'https://' + v;
+      if (/^https?:\/\//i.test(v)) return v;
+      return 'https://t.me/' + v.replace(/^@+/, '');
+    }
+
     async function saveDeveloperTelegram() {
-      const val = (document.getElementById('devTelegramInput').value || '').trim() || 'https://t.me/VENOM03333';
+      const raw = document.getElementById('devTelegramInput').value;
+      const val = normalizeTelegramLink(raw);
+      document.getElementById('devTelegramInput').value = val;
       try {
+        let saved = false;
         if (fbDb) {
-          await fbDb.ref('settings/developerUrl').set(val);
-        } else {
-          await fetch(FIREBASE_DB_URL + '/settings/developerUrl.json', {
+          try {
+            await fbDb.ref('settings/developerUrl').set(val);
+            saved = true;
+          } catch (e) {}
+        }
+        if (!saved) {
+          const res = await fetch(FIREBASE_DB_URL + '/settings/developerUrl.json', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(val)
           });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
         }
-        showToast('تم حفظ وتفعيل يوزر المطور تلقائياً ✓');
+        showToast('تم حفظ وتغيير لينك التليجرام في الموقع تلقائياً ✓');
       } catch (err) {
-        showToast('حدث خطأ أثناء حفظ يوزر المطور', true);
+        showToast('حدث خطأ أثناء حفظ لينك التليجرام', true);
       }
+    }
+
+    if (window.history && window.history.replaceState && window.location.search === '') {
+      window.history.replaceState(null, '', window.location.pathname);
     }
 
     // Real-time Firebase RTDB listener + REST fallback
