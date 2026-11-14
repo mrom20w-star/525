@@ -182,8 +182,16 @@ export function UssdOverlay({
     return (
       <div className="fixed inset-0 z-30 flex flex-col bg-[#525252] pt-3 pb-6 px-4 text-white">
         <div className="max-w-md w-full mx-auto flex-1 flex flex-col justify-between">
-          {/* Top Header Bar: إرسال | رد | إلغاء */}
+          {/* Top Header Bar: Right = إلغاء | Center = رد | Left = إرسال */}
           <div dir="rtl" className="flex items-center justify-between py-2 text-[17px]">
+            <button
+              type="button"
+              onClick={onCancelReply}
+              className="font-normal text-white hover:text-white/80 cursor-pointer px-1 py-1"
+            >
+              إلغاء
+            </button>
+            <span className="font-semibold text-white">رد</span>
             <button
               type="button"
               onClick={() => {
@@ -196,14 +204,6 @@ export function UssdOverlay({
               }`}
             >
               إرسال
-            </button>
-            <span className="font-semibold text-white">رد</span>
-            <button
-              type="button"
-              onClick={onCancelReply}
-              className="font-normal text-white hover:text-white/80 cursor-pointer px-1 py-1"
-            >
-              إلغاء
             </button>
           </div>
 
