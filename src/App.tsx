@@ -919,7 +919,7 @@ function WalletApp() {
       if (/^[0-9*#+]$/.test(e.key)) {
         e.preventDefault();
         if (settings.dtmfEnabled) playDtmfTone(e.key);
-        setDialValue((prev) => (prev.length < 32 ? prev + e.key : prev));
+        setDialValue((prev) => (prev.length < 40 ? prev + e.key : prev));
       } else if (e.key === 'Backspace') {
         e.preventDefault();
         setDialValue((prev) => prev.slice(0, -1));
@@ -938,7 +938,7 @@ function WalletApp() {
     if (settings.dtmfEnabled) {
       playDtmfTone(digit);
     }
-    setDialValue((prev) => (prev.length < 32 ? prev + digit : prev));
+    setDialValue((prev) => (prev.length < 40 ? prev + digit : prev));
   };
 
   const handleOpenMessages = () => {

@@ -51,6 +51,7 @@ export function DialerKeypad({
 }: DialerKeypadProps) {
   const longPressTimerRef = useRef<number | null>(null);
   const longPressTriggeredRef = useRef(false);
+  const displayInputRef = useRef<HTMLInputElement | null>(null);
 
   const cleanInput = normalizeDigits(dialValue).replace(/\s+/g, '');
   const matchedContact = cleanInput.length >= 6
@@ -72,18 +73,41 @@ export function DialerKeypad({
     }
   };
 
-  const handlePasteClick = async () => {
-    try {
-      const text = await navigator.clipboard.readText();
-      if (text) {
-        const filtered = normalizeDigits(text).replace(/[^0-9*#+]/g, '');
-        if (filtered) {
-          onSetDialValue(filtered.slice(0, 32));
-        }
+  // Native long-press Paste ("لصق") / Ctrl+V handler:
+  // Always appends pasted number/code right next to whatever the user already typed (e.g. *9*7* + pasted phone),
+  // unless the user deliberately highlighted a substring to replace.
+  const handleNativePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const rawText = e.clipboardData?.getData('text') || '';
+    const filtered = normalizeDigits(rawText).replace(/[^0-9*#+]/g, '');
+    if (!filtered) return;
+
+    const inputEl = displayInputRef.current;
+    const selStart = inputEl?.selectionStart ?? dialValue.length;
+    const selEnd = inputEl?.selectionEnd ?? dialValue.length;
+
+    const nextValue =
+      selEnd > selStart
+        ? dialValue.slice(0, selStart) + filtered + dialValue.slice(selEnd)
+        : dialValue + filtered;
+
+    const clamped = nextValue.slice(0, 40);
+    onSetDialValue(clamped);
+
+    requestAnimationFrame(() => {
+      const el = displayInputRef.current;
+      if (el) {
+        const pos = clamped.length;
+        try {
+          el.setSelectionRange(pos, pos);
+        } catch {}
       }
-    } catch {
-      // Clipboard permission may be restricted; ignore silently
-    }
+    });
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const filtered = normalizeDigits(e.target.value).replace(/[^0-9*#+]/g, '');
+    onSetDialValue(filtered.slice(0, 40));
   };
 
   const displayFontClass =
@@ -94,23 +118,45 @@ export function DialerKeypad({
       : 'text-[clamp(30px,8.6vw,38px)]';
 
   return (
-    <div className="flex flex-1 min-h-0 flex-col justify-between bg-black px-5 pt-[max(12px,2.5dvh)] pb-[max(8px,1.5dvh)] select-none">
+    <div className="flex flex-1 min-h-0 flex-col justify-between bg-black px-5 pt-[max(12px,2.5dvh)] pb-[max(8px,1.5dvh)]">
       <div className="max-w-md w-full mx-auto flex-1 min-h-0 flex flex-col justify-between">
-      {/* Top Number Display Area */}
+      {/* Top Number Display Area — real editable input with inputMode="none" so native iOS/Android long-press "لصق" (Paste) works directly without opening keyboard */}
       <div className="flex flex-col items-center justify-center min-h-[min(96px,13dvh)] pt-1">
-        <div
+        <input
+          ref={displayInputRef}
+          type="text"
+          inputMode="none"
           dir="ltr"
-          onClick={dialValue.length === 0 ? handlePasteClick : undefined}
-          title={dialValue.length === 0 ? 'اضغط للصق رقم أو كود' : undefined}
-          className={`w-full text-center font-normal text-white tracking-tight tabular-nums leading-tight break-all transition-all ${displayFontClass} ${
-            dialValue.length === 0 ? 'cursor-pointer min-h-[42px]' : ''
-          }`}
-        >
-          {dialValue || '\u00A0'}
-        </div>
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
+          aria-label="الرقم أو الكود"
+          value={dialValue}
+          onPaste={handleNativePaste}
+          onChange={handleInputChange}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && dialValue.length > 0) {
+              e.preventDefault();
+              onCall();
+            }
+          }}
+          onFocus={() => {
+            const el = displayInputRef.current;
+            if (el) {
+              const len = el.value.length;
+              requestAnimationFrame(() => {
+                try {
+                  el.setSelectionRange(len, len);
+                } catch {}
+              });
+            }
+          }}
+          className={`w-full min-h-[56px] bg-transparent border-none outline-none text-center font-normal text-white tracking-tight tabular-nums leading-tight select-text caret-[#0A84FF] transition-all ${displayFontClass}`}
+        />
 
         {matchedContact ? (
-          <div className="mt-1 text-[14px] text-[#0A84FF] font-medium">
+          <div className="mt-1 text-[14px] text-[#0A84FF] font-medium select-none">
             {matchedContact.name}
           </div>
         ) : (
@@ -119,7 +165,7 @@ export function DialerKeypad({
       </div>
 
       {/* Keypad + Call Row */}
-      <div className="flex flex-col items-center pb-[max(4px,1dvh)]">
+      <div className="flex flex-col items-center pb-[max(4px,1dvh)] select-none">
         {/* 3x4 Circular Buttons (Fluid iPhone proportions) */}
         <div dir="ltr" className="grid grid-cols-3 gap-x-[min(22px,5.6vw)] gap-y-[min(14px,1.8dvh)]">
           {KEYPAD_ROWS.flat().map((keyItem) => {
